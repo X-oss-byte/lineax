@@ -27,9 +27,7 @@ from jaxtyping import Array, ArrayLike, Bool, PyTree, Scalar  # pyright:ignore
 
 def two_norm(x: PyTree) -> Scalar:
     x, _ = jfu.ravel_pytree(x)
-    if x.size == 0:
-        return jnp.array(0.0)
-    return _two_norm(x)
+    return jnp.array(0.0) if x.size == 0 else _two_norm(x)
 
 
 @jax.custom_jvp
@@ -56,9 +54,8 @@ def tree_dot(a: PyTree[Array], b: PyTree[Array]) -> Array:
     b = jtu.tree_leaves(b)
     assert len(a) == len(b)
     return sum(
-        [
-            jnp.vdot(ai, bi, precision=lax.Precision.HIGHEST) for ai, bi in zip(a, b)
-        ]  # pyright:ignore
+        jnp.vdot(ai, bi, precision=lax.Precision.HIGHEST)
+        for ai, bi in zip(a, b)
     )
 
 
@@ -101,10 +98,7 @@ def jacobian(fn, in_size, out_size, has_aux=False):
 
 
 def _to_struct(x):
-    if eqx.is_array(x):
-        return jax.ShapeDtypeStruct(x.shape, x.dtype)
-    else:
-        return x
+    return jax.ShapeDtypeStruct(x.shape, x.dtype) if eqx.is_array(x) else x
 
 
 @ft.lru_cache(maxsize=128)
@@ -121,10 +115,7 @@ def cached_eval_shape(fn, *args, **kwargs):
 
 
 def default_floating_dtype():
-    if jax.config.jax_enable_x64:  # pyright: ignore
-        return jnp.float64
-    else:
-        return jnp.float32
+    return jnp.float64 if jax.config.jax_enable_x64 else jnp.float32
 
 
 def _asarray(dtype, x):

@@ -43,96 +43,97 @@ from .helpers import (
 def test_vmap_vmap(
     getkey, make_operator, solver, tags, pseudoinverse, use_state, make_matrix
 ):
-    if (make_matrix is construct_matrix) or pseudoinverse:
-        # combinations with nontrivial application across both vmaps
-        axes = [
-            (eqx.if_array(0), eqx.if_array(0), None, None),
-            (None, None, 0, 0),
-            (eqx.if_array(0), eqx.if_array(0), None, 0),
-            (eqx.if_array(0), eqx.if_array(0), 0, 0),
-            (None, eqx.if_array(0), 0, 0),
-        ]
+    if make_matrix is not construct_matrix and not pseudoinverse:
+        return
+    # combinations with nontrivial application across both vmaps
+    axes = [
+        (eqx.if_array(0), eqx.if_array(0), None, None),
+        (None, None, 0, 0),
+        (eqx.if_array(0), eqx.if_array(0), None, 0),
+        (eqx.if_array(0), eqx.if_array(0), 0, 0),
+        (None, eqx.if_array(0), 0, 0),
+    ]
 
-        for vmap2_op, vmap1_op, vmap2_vec, vmap1_vec in axes:
-            if vmap1_op is not None:
-                axis_size1 = 10
-                out_axis1 = eqx.if_array(0)
-            else:
-                axis_size1 = None
-                out_axis1 = None
+    for vmap2_op, vmap1_op, vmap2_vec, vmap1_vec in axes:
+        if vmap1_op is not None:
+            axis_size1 = 10
+            out_axis1 = eqx.if_array(0)
+        else:
+            axis_size1 = None
+            out_axis1 = None
 
+        if vmap2_op is not None:
+            axis_size2 = 10
+            out_axis2 = eqx.if_array(0)
+        else:
+            axis_size2 = None
+            out_axis2 = None
+
+        (matrix,) = eqx.filter_vmap(
+            eqx.filter_vmap(make_matrix, axis_size=axis_size1, out_axes=out_axis1),
+            axis_size=axis_size2,
+            out_axes=out_axis2,
+        )(getkey, solver, tags)
+
+        if vmap1_op is not None:
             if vmap2_op is not None:
-                axis_size2 = 10
-                out_axis2 = eqx.if_array(0)
+                _, _, out_size, _ = matrix.shape
             else:
-                axis_size2 = None
-                out_axis2 = None
+                _, out_size, _ = matrix.shape
+        else:
+            out_size, _ = matrix.shape
 
-            (matrix,) = eqx.filter_vmap(
-                eqx.filter_vmap(make_matrix, axis_size=axis_size1, out_axes=out_axis1),
-                axis_size=axis_size2,
-                out_axes=out_axis2,
-            )(getkey, solver, tags)
+        if vmap1_vec is None:
+            vec = jr.normal(getkey(), (out_size,))
+        elif (vmap1_vec is not None) and (vmap2_vec is None):
+            vec = jr.normal(getkey(), (10, out_size))
+        else:
+            vec = jr.normal(getkey(), (10, 10, out_size))
 
-            if vmap1_op is not None:
-                if vmap2_op is not None:
-                    _, _, out_size, _ = matrix.shape
-                else:
-                    _, out_size, _ = matrix.shape
-            else:
-                out_size, _ = matrix.shape
+        operator = eqx.filter_vmap(
+            eqx.filter_vmap(
+                make_operator,
+                in_axes=vmap1_op,
+                out_axes=out_axis1,
+            ),
+            in_axes=vmap2_op,
+            out_axes=out_axis2,
+        )(matrix, tags)
 
-            if vmap1_vec is None:
-                vec = jr.normal(getkey(), (out_size,))
-            elif (vmap1_vec is not None) and (vmap2_vec is None):
-                vec = jr.normal(getkey(), (10, out_size))
-            else:
-                vec = jr.normal(getkey(), (10, 10, out_size))
+        if use_state:
 
-            operator = eqx.filter_vmap(
-                eqx.filter_vmap(
-                    make_operator,
-                    in_axes=vmap1_op,
-                    out_axes=out_axis1,
-                ),
-                in_axes=vmap2_op,
-                out_axes=out_axis2,
-            )(matrix, tags)
+            def linear_solve(operator, vector):
+                state = solver.init(operator, options={})
+                return lx.linear_solve(operator, vector, state=state, solver=solver)
 
-            if use_state:
+        else:
 
-                def linear_solve(operator, vector):
-                    state = solver.init(operator, options={})
-                    return lx.linear_solve(operator, vector, state=state, solver=solver)
+            def linear_solve(operator, vector):
+                return lx.linear_solve(operator, vector, solver)
 
-            else:
-
-                def linear_solve(operator, vector):
-                    return lx.linear_solve(operator, vector, solver)
-
-            as_matrix_vmapped = eqx.filter_vmap(
-                eqx.filter_vmap(
-                    lambda x: x.as_matrix(),
-                    in_axes=vmap1_op,
-                    out_axes=eqxi.if_mapped(0),
-                ),
-                in_axes=vmap2_op,
+        as_matrix_vmapped = eqx.filter_vmap(
+            eqx.filter_vmap(
+                lambda x: x.as_matrix(),
+                in_axes=vmap1_op,
                 out_axes=eqxi.if_mapped(0),
-            )(operator)
+            ),
+            in_axes=vmap2_op,
+            out_axes=eqxi.if_mapped(0),
+        )(operator)
 
-            vmap1_axes = (vmap1_op, vmap1_vec)
-            vmap2_axes = (vmap2_op, vmap2_vec)
+        vmap1_axes = (vmap1_op, vmap1_vec)
+        vmap2_axes = (vmap2_op, vmap2_vec)
 
-            result = eqx.filter_vmap(
-                eqx.filter_vmap(linear_solve, in_axes=vmap1_axes), in_axes=vmap2_axes
-            )(operator, vec).value
+        result = eqx.filter_vmap(
+            eqx.filter_vmap(linear_solve, in_axes=vmap1_axes), in_axes=vmap2_axes
+        )(operator, vec).value
 
-            solve_with = lambda x: eqx.filter_vmap(
-                eqx.filter_vmap(x, in_axes=vmap1_axes), in_axes=vmap2_axes
-            )(as_matrix_vmapped, vec)
+        solve_with = lambda x: eqx.filter_vmap(
+            eqx.filter_vmap(x, in_axes=vmap1_axes), in_axes=vmap2_axes
+        )(as_matrix_vmapped, vec)
 
-            if make_matrix is construct_singular_matrix:
-                true_result, _, _, _ = solve_with(jnp.linalg.lstsq)
-            else:
-                true_result = solve_with(jnp.linalg.solve)
-            assert shaped_allclose(result, true_result, rtol=1e-3)
+        if make_matrix is construct_singular_matrix:
+            true_result, _, _, _ = solve_with(jnp.linalg.lstsq)
+        else:
+            true_result = solve_with(jnp.linalg.solve)
+        assert shaped_allclose(result, true_result, rtol=1e-3)

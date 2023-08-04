@@ -53,8 +53,7 @@ def benchmark_jax(mat_size: int, *, key):
 
     assert actually_failed
 
-    captured_failure = returned_failed & actually_failed
-    return captured_failure
+    return returned_failed & actually_failed
 
 
 def benchmark_lx(mat_size: int, *, key):
@@ -67,8 +66,7 @@ def benchmark_lx(mat_size: int, *, key):
 
     assert actually_failed
 
-    captured_failure = returned_failed & actually_failed
-    return captured_failure
+    return returned_failed & actually_failed
 
 
 lx_failed_safely = 0

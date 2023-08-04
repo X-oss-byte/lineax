@@ -31,10 +31,7 @@ from .helpers import (
 @pytest.mark.parametrize("make_operator,solver,tags", params(only_pseudo=False))
 @pytest.mark.parametrize("ops", ops)
 def test_small_wellposed(make_operator, solver, tags, ops, getkey):
-    if jax.config.jax_enable_x64:  # pyright: ignore
-        tol = 1e-10
-    else:
-        tol = 1e-4
+    tol = 1e-10 if jax.config.jax_enable_x64 else 1e-4
     (matrix,) = construct_matrix(getkey, solver, tags)
     operator = make_operator(matrix, tags)
     operator, matrix = ops(operator, matrix)
@@ -51,29 +48,26 @@ def test_small_wellposed(make_operator, solver, tags, ops, getkey):
 @pytest.mark.parametrize("solver", solvers)
 def test_pytree_wellposed(solver, getkey):
 
-    if not isinstance(
+    if isinstance(
         solver,
         (lx.Diagonal, lx.Triangular, lx.Tridiagonal, lx.Cholesky, lx.CG, lx.NormalCG),
     ):
-        if jax.config.jax_enable_x64:  # pyright: ignore
-            tol = 1e-10
-        else:
-            tol = 1e-4
+        return
+    tol = 1e-10 if jax.config.jax_enable_x64 else 1e-4
+    true_x = [jr.normal(getkey(), shape=(2, 4)), jr.normal(getkey(), (3,))]
+    pytree = [
+        [
+            jr.normal(getkey(), shape=(2, 4, 2, 4)),
+            jr.normal(getkey(), shape=(2, 4, 3)),
+        ],
+        [
+            jr.normal(getkey(), shape=(3, 2, 4)),
+            jr.normal(getkey(), shape=(3, 3)),
+        ],
+    ]
+    out_structure = jax.eval_shape(lambda: true_x)
 
-        true_x = [jr.normal(getkey(), shape=(2, 4)), jr.normal(getkey(), (3,))]
-        pytree = [
-            [
-                jr.normal(getkey(), shape=(2, 4, 2, 4)),
-                jr.normal(getkey(), shape=(2, 4, 3)),
-            ],
-            [
-                jr.normal(getkey(), shape=(3, 2, 4)),
-                jr.normal(getkey(), shape=(3, 3)),
-            ],
-        ]
-        out_structure = jax.eval_shape(lambda: true_x)
-
-        operator = lx.PyTreeLinearOperator(pytree, out_structure)
-        b = operator.mv(true_x)
-        lx_x = lx.linear_solve(operator, b, solver, throw=False)
-        assert shaped_allclose(lx_x.value, true_x, atol=tol, rtol=tol)
+    operator = lx.PyTreeLinearOperator(pytree, out_structure)
+    b = operator.mv(true_x)
+    lx_x = lx.linear_solve(operator, b, solver, throw=False)
+    assert shaped_allclose(lx_x.value, true_x, atol=tol, rtol=tol)

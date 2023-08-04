@@ -69,10 +69,7 @@ class Triangular(AbstractLinearSolver[_TriangularState]):
         matrix, lower, unit_diagonal, packed_structures, transpose = state
         del state, options
         vector = ravel_vector(vector, packed_structures)
-        if transpose:
-            trans = "T"
-        else:
-            trans = "N"
+        trans = "T" if transpose else "N"
         solution = jsp.linalg.solve_triangular(
             matrix, vector, trans=trans, lower=lower, unit_diagonal=unit_diagonal
         )

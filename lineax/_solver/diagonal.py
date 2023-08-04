@@ -52,10 +52,7 @@ class Diagonal(AbstractLinearSolver[_DiagonalState]):
             raise ValueError(
                 "`Diagonal` may only be used for linear solves with diagonal matrices"
             )
-        if has_unit_diagonal(operator):
-            return None
-        else:
-            return diagonal(operator)
+        return None if has_unit_diagonal(operator) else diagonal(operator)
 
     def compute(
         self, state: _DiagonalState, vector: PyTree[Array], options: dict[str, Any]

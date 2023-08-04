@@ -23,10 +23,7 @@ from .helpers import shaped_allclose
 
 
 def test_gmres_large_dense(getkey):
-    if jax.config.jax_enable_x64:  # pyright: ignore
-        tol = 1e-10
-    else:
-        tol = 1e-4
+    tol = 1e-10 if jax.config.jax_enable_x64 else 1e-4
     solver = lx.GMRES(atol=tol, rtol=tol, restart=100)
 
     matrix = jr.normal(getkey(), (100, 100))

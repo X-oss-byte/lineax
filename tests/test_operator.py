@@ -97,8 +97,7 @@ def _setup(matrix, tag: Union[object, frozenset[object]] = frozenset()):
             lx.symmetric_tag,
         ):
             continue
-        operator = make_operator(matrix, tag)
-        yield operator
+        yield make_operator(matrix, tag)
 
 
 def _assert_except_diag(cond_fun, operators, flip_cond):

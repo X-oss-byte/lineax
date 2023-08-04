@@ -36,10 +36,7 @@ from helpers import (  # pyright: ignore
 
 jax.config.update("jax_enable_x64", True)
 
-if jax.config.jax_enable_x64:  # pyright: ignore
-    tol = 1e-12
-else:
-    tol = 1e-6
+tol = 1e-12 if jax.config.jax_enable_x64 else 1e-6
 
 
 def base_wrapper(a, b, solver):
@@ -166,11 +163,7 @@ def test_solvers(vmap_size, mat_size):
         lx_solver = jax.jit(lx_solver)
         bench_lx = ft.partial(lx_solver, matrix, b)
 
-        if vmap_size == 1:
-            batch_msg = "problem"
-        else:
-            batch_msg = f"batch of {vmap_size} problems"
-
+        batch_msg = "problem" if vmap_size == 1 else f"batch of {vmap_size} problems"
         lx_soln = bench_lx()
         if shaped_allclose(lx_soln, true_x, atol=1e-4, rtol=1e-4):
             lx_solve_time = timeit.timeit(bench_lx, number=1)
