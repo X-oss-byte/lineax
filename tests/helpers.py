@@ -61,10 +61,7 @@ def _construct_matrix_impl(getkey, cond_cutoff, tags, size):
 
 
 def construct_matrix(getkey, solver, tags, num=1, *, size=3):
-    if isinstance(solver, lx.NormalCG):
-        cond_cutoff = math.sqrt(1000)
-    else:
-        cond_cutoff = 1000
+    cond_cutoff = math.sqrt(1000) if isinstance(solver, lx.NormalCG) else 1000
     return tuple(
         _construct_matrix_impl(getkey, cond_cutoff, tags, size) for _ in range(num)
     )
@@ -74,20 +71,16 @@ def construct_singular_matrix(getkey, solver, tags, num=1):
     matrices = construct_matrix(getkey, solver, tags, num)
     if isinstance(solver, (lx.Diagonal, lx.CG, lx.BiCGStab, lx.GMRES)):
         return tuple(matrix.at[0, :].set(0) for matrix in matrices)
+    version = random.choice([0, 1, 2])
+    if version == 0:
+        return tuple(matrix.at[0, :].set(0) for matrix in matrices)
+    elif version == 1:
+        return tuple(matrix[1:, :] for matrix in matrices)
     else:
-        version = random.choice([0, 1, 2])
-        if version == 0:
-            return tuple(matrix.at[0, :].set(0) for matrix in matrices)
-        elif version == 1:
-            return tuple(matrix[1:, :] for matrix in matrices)
-        else:
-            return tuple(matrix[:, 1:] for matrix in matrices)
+        return tuple(matrix[:, 1:] for matrix in matrices)
 
 
-if jax.config.jax_enable_x64:  # pyright: ignore
-    tol = 1e-12
-else:
-    tol = 1e-6
+tol = 1e-12 if jax.config.jax_enable_x64 else 1e-6
 solvers_tags_pseudoinverse = [
     (lx.AutoLinearSolver(well_posed=True), (), False),
     (lx.AutoLinearSolver(well_posed=False), (), True),

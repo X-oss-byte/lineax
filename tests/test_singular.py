@@ -38,10 +38,7 @@ from .helpers import (
 @pytest.mark.parametrize("make_operator,solver,tags", params(only_pseudo=True))
 @pytest.mark.parametrize("ops", ops)
 def test_small_singular(make_operator, solver, tags, ops, getkey):
-    if jax.config.jax_enable_x64:  # pyright: ignore
-        tol = 1e-10
-    else:
-        tol = 1e-4
+    tol = 1e-10 if jax.config.jax_enable_x64 else 1e-4
     (matrix,) = construct_singular_matrix(getkey, solver, tags)
     operator = make_operator(matrix, tags)
     operator, matrix = ops(operator, matrix)
@@ -55,10 +52,7 @@ def test_small_singular(make_operator, solver, tags, ops, getkey):
 
 
 def test_bicgstab_breakdown(getkey):
-    if jax.config.jax_enable_x64:  # pyright: ignore
-        tol = 1e-10
-    else:
-        tol = 1e-4
+    tol = 1e-10 if jax.config.jax_enable_x64 else 1e-4
     solver = lx.GMRES(atol=tol, rtol=tol, restart=2)
 
     matrix = jr.normal(jr.PRNGKey(0), (100, 100))
@@ -73,10 +67,7 @@ def test_bicgstab_breakdown(getkey):
 
 
 def test_gmres_stagnation_or_breakdown(getkey):
-    if jax.config.jax_enable_x64:  # pyright: ignore
-        tol = 1e-10
-    else:
-        tol = 1e-4
+    tol = 1e-10 if jax.config.jax_enable_x64 else 1e-4
     solver = lx.GMRES(atol=tol, rtol=tol, restart=2)
 
     matrix = jnp.array(
@@ -142,10 +133,7 @@ def test_qr_nonsquare_mat_vec(full_rank, jvp, wide, getkey):
         context = contextlib.nullcontext()
     else:
         context = pytest.raises(Exception)
-        if wide:
-            matrix = matrix.at[:, 2:].set(0)
-        else:
-            matrix = matrix.at[2:, :].set(0)
+        matrix = matrix.at[:, 2:].set(0) if wide else matrix.at[2:, :].set(0)
     vector = jr.normal(getkey(), (out_size,))
     lx_solve = lambda mat, vec: lx.linear_solve(
         lx.MatrixLinearOperator(mat), vec, lx.QR()
@@ -181,10 +169,7 @@ def test_qr_nonsquare_vec(full_rank, jvp, wide, getkey):
         context = contextlib.nullcontext()
     else:
         context = pytest.raises(Exception)
-        if wide:
-            matrix = matrix.at[:, 2:].set(0)
-        else:
-            matrix = matrix.at[2:, :].set(0)
+        matrix = matrix.at[:, 2:].set(0) if wide else matrix.at[2:, :].set(0)
     vector = jr.normal(getkey(), (out_size,))
     lx_solve = lambda vec: lx.linear_solve(
         lx.MatrixLinearOperator(matrix), vec, lx.QR()

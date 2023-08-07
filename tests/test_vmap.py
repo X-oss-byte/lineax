@@ -42,42 +42,42 @@ from .helpers import (
 def test_vmap(
     getkey, make_operator, solver, tags, pseudoinverse, use_state, make_matrix
 ):
-    if (make_matrix is construct_matrix) or pseudoinverse:
+    if make_matrix is not construct_matrix and not pseudoinverse:
+        return
+    def wrap_solve(matrix, vector):
+        operator = make_operator(matrix, tags)
+        if use_state:
+            state = solver.init(operator, options={})
+            return lx.linear_solve(operator, vector, solver, state=state).value
+        else:
+            return lx.linear_solve(operator, vector, solver).value
 
-        def wrap_solve(matrix, vector):
-            operator = make_operator(matrix, tags)
-            if use_state:
-                state = solver.init(operator, options={})
-                return lx.linear_solve(operator, vector, solver, state=state).value
-            else:
-                return lx.linear_solve(operator, vector, solver).value
+    for op_axis, vec_axis in (
+        (None, 0),
+        (eqx.if_array(0), None),
+        (eqx.if_array(0), 0),
+    ):
+        if op_axis is None:
+            axis_size = None
+            out_axes = None
+        else:
+            axis_size = 10
+            out_axes = eqx.if_array(0)
 
-        for op_axis, vec_axis in (
-            (None, 0),
-            (eqx.if_array(0), None),
-            (eqx.if_array(0), 0),
-        ):
-            if op_axis is None:
-                axis_size = None
-                out_axes = None
-            else:
-                axis_size = 10
-                out_axes = eqx.if_array(0)
+        (matrix,) = eqx.filter_vmap(
+            make_matrix, axis_size=axis_size, out_axes=out_axes
+        )(getkey, solver, tags)
+        out_dim = matrix.shape[-2]
 
-            (matrix,) = eqx.filter_vmap(
-                make_matrix, axis_size=axis_size, out_axes=out_axes
-            )(getkey, solver, tags)
-            out_dim = matrix.shape[-2]
+        if vec_axis is None:
+            vec = jr.normal(getkey(), (out_dim,))
+        else:
+            vec = jr.normal(getkey(), (10, out_dim))
 
-            if vec_axis is None:
-                vec = jr.normal(getkey(), (out_dim,))
-            else:
-                vec = jr.normal(getkey(), (10, out_dim))
-
-            jax_result, _, _, _ = eqx.filter_vmap(
-                jnp.linalg.lstsq, in_axes=(op_axis, vec_axis)
-            )(matrix, vec)
-            lx_result = eqx.filter_vmap(wrap_solve, in_axes=(op_axis, vec_axis))(
-                matrix, vec
-            )
-            assert shaped_allclose(lx_result, jax_result)
+        jax_result, _, _, _ = eqx.filter_vmap(
+            jnp.linalg.lstsq, in_axes=(op_axis, vec_axis)
+        )(matrix, vec)
+        lx_result = eqx.filter_vmap(wrap_solve, in_axes=(op_axis, vec_axis))(
+            matrix, vec
+        )
+        assert shaped_allclose(lx_result, jax_result)

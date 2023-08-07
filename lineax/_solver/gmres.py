@@ -120,10 +120,7 @@ class GMRES(AbstractLinearSolver[_GMRESState]):
         preconditioner, y0 = preconditioner_and_y0(operator, vector, options)
         leaves, _ = jtu.tree_flatten(vector)
         size = sum(leaf.size for leaf in leaves)
-        if self.max_steps is None:
-            max_steps = 10 * size  # Copied from SciPy!
-        else:
-            max_steps = self.max_steps
+        max_steps = 10 * size if self.max_steps is None else self.max_steps
         restart = min(self.restart, size)
 
         def not_converged(r, diff, y):

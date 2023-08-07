@@ -292,7 +292,7 @@ def _tree_matmul(matrix: PyTree[ArrayLike], vector: PyTree[ArrayLike]) -> PyTree
     matrix = jtu.tree_leaves(matrix)
     vector = jtu.tree_leaves(vector)
     assert len(matrix) == len(vector)
-    return sum([_matmul(m, v) for m, v in zip(matrix, vector)])
+    return sum(_matmul(m, v) for m, v in zip(matrix, vector))
 
 
 # Needed as static fields must be hashable and eq-able, and custom pytrees might have
@@ -1100,7 +1100,7 @@ class AuxLinearOperator(AbstractLinearOperator):
 def _default_not_implemented(name: str, operator: AbstractLinearOperator) -> NoReturn:
     msg = f"`lineax.{name}` has not been implemented for {type(operator)}"
     if type(operator).__module__.startswith("lineax"):
-        assert False, msg + ". Please file a bug against Lineax."
+        assert False, f"{msg}. Please file a bug against Lineax."
     else:
         raise NotImplementedError(msg)
 

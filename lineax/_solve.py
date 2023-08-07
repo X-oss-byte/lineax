@@ -251,10 +251,7 @@ def _assert_defined(x):
 
 
 def _keep_undefined(v, ct):
-    if _is_undefined(v):
-        return ct
-    else:
-        return None
+    return ct if _is_undefined(v) else None
 
 
 @eqxi.filter_primitive_transpose
@@ -548,11 +545,7 @@ class AutoLinearSolver(AbstractLinearSolver[_AutoLinearSolverState]):
             else:
                 token = _lu_token
         elif self.well_posed is False:
-            if is_diagonal(operator):
-                token = _diagonal_token
-            else:
-                # TODO: use rank-revealing QR instead.
-                token = _svd_token
+            token = _diagonal_token if is_diagonal(operator) else _svd_token
         elif self.well_posed is None:
             if operator.in_size() != operator.out_size():
                 token = _qr_token
